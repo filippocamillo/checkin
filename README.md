@@ -12,7 +12,7 @@ Stack: Next.js 16, Supabase (Postgres, autenticazione), API Claude per leggere i
 | Funzione | Stato |
 |---|---|
 | Più appartamenti, ciascuno con la propria configurazione | ✓ |
-| Import prenotazioni dai calendari iCal di Airbnb e Booking (ogni ora) | ✓ |
+| Import prenotazioni dai calendari iCal di Airbnb e Booking (automatico e su richiesta) | ✓ |
 | Prenotazioni inserite a mano | ✓ |
 | Link per l'ospite: foto del documento → dati precompilati → conferma | ✓ |
 | Lettura MRZ con verifica delle cifre di controllo, più lettura visiva per gli altri campi | ✓ |
@@ -24,7 +24,27 @@ Stack: Next.js 16, Supabase (Postgres, autenticazione), API Claude per leggere i
 
 Le foto dei documenti non vengono mai salvate: l'immagine passa in memoria al servizio di lettura e viene scartata.
 
-## Avvio
+## Prova rapida (Supabase + Vercel, piani gratuiti)
+
+**Supabase**
+1. Su supabase.com crea un progetto in regione *Central EU (Frankfurt)*.
+2. *SQL Editor* → incolla ed esegui il contenuto di `supabase/migrations/20261005000000_init.sql`.
+3. *Authentication → Users → Add user → Create new user* con la tua email (password a piacere, *Auto Confirm User* attivo): è l'unico utente che potrà entrare, sempre con un link via email.
+4. *Authentication → URL Configuration*: in *Redirect URLs* aggiungi `https://*.vercel.app/**`.
+5. *Project Settings → API*: copia Project URL, chiave `anon` e chiave `service_role`.
+
+**Anthropic**
+6. Su console.anthropic.com crea una API key (serve un po' di credito: ogni lettura documento costa pochi centesimi).
+
+**Vercel**
+7. Su vercel.com → *Add New → Project* → importa `filippocamillo/checkin`.
+8. In *Environment Variables* inserisci `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY` e un `CRON_SECRET` qualsiasi, per *Production* e *Preview*.
+9. Finché la prima fase non è unita a `main`, apri il deploy del branch `feat/prima-fase-app` (scheda *Deployments*); in alternativa imposta quel branch come *Production Branch* in *Settings → Git*.
+10. Apri l'indirizzo del deploy, entra con il link che ricevi via email, crea il tuo appartamento e una prenotazione di prova, poi apri il link ospite dal telefono.
+
+Senza le tabelle Alloggiati (sotto) tutto funziona, ma il file per la Questura segnalerà i codici mancanti.
+
+## Avvio in locale
 
 1. Crea un progetto Supabase in regione UE ed esegui `supabase/migrations/20261005000000_init.sql` (SQL editor o `supabase db push`).
 2. In Supabase → Authentication crea il tuo utente host (l'accesso è solo su invito, con link via email) e imposta come Site URL l'indirizzo dell'app.
@@ -44,7 +64,7 @@ La prima volta che un ospite ha una cittadinanza nuova, la pagina della prenotaz
 
 ### Deploy
 
-Il progetto è pronto per Vercel (regione Francoforte, `vercel.json`): il cron chiama `/api/cron/ical` ogni ora con l'header `Authorization: Bearer $CRON_SECRET`.
+Il progetto è pronto per Vercel (regione Francoforte, `vercel.json`). Il cron chiama `/api/cron/ical` una volta al giorno, il massimo consentito dal piano gratuito; con un piano a pagamento si può portare a ogni ora (`0 * * * *`). Vercel invia da solo l'header `Authorization: Bearer $CRON_SECRET`.
 
 ## Sviluppo
 

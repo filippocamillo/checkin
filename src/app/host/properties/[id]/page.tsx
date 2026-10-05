@@ -22,7 +22,7 @@ export default async function PropertyPage({ params }: PageProps<"/host/properti
         <div>
           <h2 className="font-semibold">Calendari Airbnb e Booking</h2>
           <p className="text-sm text-fg-muted">
-            Incolla il link iCal di esportazione: le prenotazioni vengono importate in automatico ogni ora. I dati degli ospiti
+            Incolla il link iCal di esportazione: le prenotazioni vengono importate in automatico ogni giorno, o subito con “Aggiorna”. I dati degli ospiti
             arrivano poi dal link che invii a ciascuno.
           </p>
         </div>

@@ -4,7 +4,7 @@ import { syncFeed } from "@/lib/ical";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { IcalFeed } from "@/lib/types";
 
-// Chiamato ogni ora dal cron (vercel.json) per importare le prenotazioni da tutti i calendari.
+// Chiamato dal cron di Vercel (vercel.json: una volta al giorno sul piano gratuito) per importare le prenotazioni da tutti i calendari.
 export async function GET(request: NextRequest) {
   if (request.headers.get("authorization") !== `Bearer ${env.cronSecret()}`) {
     return new NextResponse("Unauthorized", { status: 401 });
