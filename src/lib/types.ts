@@ -20,6 +20,8 @@ export interface Property {
   tax_exempt_under_age: number | null;
   contract_template: string | null;
   guest_instructions: Record<string, string>;
+  access_instructions: Record<string, string>;
+  nuki_smartlock_id: string | null;
 }
 
 export interface IcalFeed {
@@ -52,6 +54,28 @@ export interface Booking {
   guest_token: string;
   contract_accepted_at: string | null;
   contract_accepted_name: string | null;
+  arrival_requested_at: string | null;
+  identification_request: IdentificationRequest | null;
+  identification_slot_at: string | null;
+  identified_at: string | null;
+  access_code: string | null;
+  access_code_auth_id: string | null;
+  access_code_error: string | null;
+}
+
+export type IdentificationRequest = "video_now" | "video_slot" | "in_person";
+export type IdentificationMethod = "video_call" | "in_person";
+
+export interface Identification {
+  id: string;
+  guest_id: string;
+  booking_id: string;
+  method: IdentificationMethod;
+  verified_by: string;
+  verified_at: string;
+  document_type: DocumentType | null;
+  document_number: string | null;
+  revoked_at: string | null;
 }
 
 export interface Guest {
@@ -119,4 +143,9 @@ export const STATUS_LABEL: Record<BookingStatus, string> = {
   ready: "Pronta da registrare",
   registered: "Registrata",
   cancelled: "Cancellata",
+};
+
+export const IDENTIFICATION_METHOD_LABEL: Record<IdentificationMethod, string> = {
+  video_call: "in videochiamata",
+  in_person: "di persona",
 };

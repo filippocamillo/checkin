@@ -8,20 +8,22 @@ import { env } from "@/lib/env";
 import { formatDate, nights } from "@/lib/format";
 import { expectedGuests } from "@/lib/guests";
 import { createClient } from "@/lib/supabase/server";
-import { CHANNEL_LABEL, type Booking, type Guest, type Property } from "@/lib/types";
+import { CHANNEL_LABEL, type Booking, type Guest, type Identification, type Property } from "@/lib/types";
 import { StatusBadge } from "../../status-badge";
 import { setBookingStatus, setCountryCode, updateBooking } from "../actions";
 import { BookingForm } from "../booking-form";
 import { GuestLink } from "./guest-link";
 import { HostGuests } from "./host-guests";
+import { IdentificationPanel } from "./identification-panel";
 
 export default async function BookingPage({ params }: PageProps<"/host/bookings/[id]">) {
   const { id } = await params;
   const supabase = await createClient();
-  const [{ data: booking }, { data: guestRows }, { data: properties }] = await Promise.all([
+  const [{ data: booking }, { data: guestRows }, { data: properties }, { data: identRows }] = await Promise.all([
     supabase.from("bookings").select("*, properties(*)").eq("id", id).maybeSingle(),
     supabase.from("guests").select("*").eq("booking_id", id).order("position"),
     supabase.from("properties").select("id, name").order("name"),
+    supabase.from("identifications").select("*").eq("booking_id", id),
   ]);
   if (!booking) notFound();
 
@@ -68,6 +70,11 @@ export default async function BookingPage({ params }: PageProps<"/host/bookings/
           <section>
             <h2 className="mb-3 font-semibold">Ospiti</h2>
             <HostGuests bookingId={b.id} guests={guests} expected={expected} />
+          </section>
+
+          <section>
+            <h2 className="mb-3 font-semibold">Riconoscimento</h2>
+            <IdentificationPanel booking={b} guests={guests} identifications={(identRows ?? []) as Identification[]} hasNuki={!!b.properties.nuki_smartlock_id} />
           </section>
 
           <section>

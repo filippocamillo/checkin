@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ExtractResult, SaveResult } from "@/components/guest-form";
 import { extractFromForm, extractionFromForm } from "@/lib/document-actions";
+import { refreshAccess } from "@/lib/access";
 import { parseGuestForm, refreshBookingStatus, saveGuest } from "@/lib/guests";
 import { createClient } from "@/lib/supabase/server";
 import type { BookingChannel, PartyType } from "@/lib/types";
@@ -84,6 +85,7 @@ export async function hostSaveGuest(bookingId: string, guestId: string | null, f
   const { data: lead } = await supabase.from("guests").select("first_name, last_name").eq("booking_id", bookingId).eq("position", 0).maybeSingle();
   if (lead) await supabase.from("bookings").update({ lead_name: `${lead.first_name} ${lead.last_name}` }).eq("id", bookingId);
   await refreshBookingStatus(supabase, bookingId);
+  await refreshAccess(bookingId);
   revalidatePath(`/host/bookings/${bookingId}`);
   return { ok: true };
 }
@@ -95,6 +97,7 @@ export async function deleteGuest(bookingId: string, guestId: string) {
   const { data: rest } = await supabase.from("guests").select("id").eq("booking_id", bookingId).order("position");
   for (const [i, g] of (rest ?? []).entries()) await supabase.from("guests").update({ position: i }).eq("id", g.id);
   await refreshBookingStatus(supabase, bookingId);
+  await refreshAccess(bookingId);
   revalidatePath(`/host/bookings/${bookingId}`);
 }
 
