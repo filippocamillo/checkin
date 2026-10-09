@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { CHANNEL_LABEL, type IcalFeed, type Property } from "@/lib/types";
 import { addFeed, deleteFeed, syncFeedNow, updateProperty } from "../actions";
@@ -13,6 +14,8 @@ export default async function PropertyPage({ params }: PageProps<"/host/properti
     supabase.from("ical_feeds").select("*").eq("property_id", id).order("created_at"),
   ]);
   if (!property) notFound();
+  // Il token Nuki non torna mai al browser: si mostra solo se è impostato.
+  const { data: secret } = await createAdminClient().from("property_secrets").select("nuki_api_token").eq("property_id", id).maybeSingle();
 
   return (
     <>
@@ -61,7 +64,7 @@ export default async function PropertyPage({ params }: PageProps<"/host/properti
         </form>
       </Card>
 
-      <PropertyForm property={property as Property} action={updateProperty.bind(null, id)} />
+      <PropertyForm property={property as Property} hasNukiToken={!!secret?.nuki_api_token} action={updateProperty.bind(null, id)} />
     </>
   );
 }

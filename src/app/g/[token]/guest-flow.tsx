@@ -4,8 +4,9 @@ import { useState, useTransition } from "react";
 import { GuestForm } from "@/components/guest-form";
 import { Badge, Button, Card, Input, cx } from "@/components/ui";
 import { dictionaries, type Lang } from "@/lib/i18n";
-import type { Guest } from "@/lib/types";
+import type { Guest, IdentificationRequest } from "@/lib/types";
 import { acceptContract, guestExtract, guestSaveGuest } from "./actions";
+import { Identify } from "./identify";
 
 interface Props {
   token: string;
@@ -15,6 +16,14 @@ interface Props {
   guests: Guest[];
   leadComplete: boolean;
   contractText: string;
+  identification: {
+    identified: boolean;
+    request: IdentificationRequest | null;
+    slotAt: string | null;
+    accessCode: string | null;
+    accessInstructions: Record<string, string>;
+    iceServers: RTCIceServer[];
+  };
 }
 
 type Step = "welcome" | "guests" | "contract" | "done";
@@ -23,7 +32,7 @@ function formatDay(iso: string, lang: Lang) {
   return new Date(`${iso}T12:00:00Z`).toLocaleDateString(lang === "it" ? "it-IT" : "en-GB", { weekday: "short", day: "numeric", month: "long" });
 }
 
-export function GuestFlow({ token, initialLang, property, booking, guests, leadComplete, contractText }: Props) {
+export function GuestFlow({ token, initialLang, property, booking, guests, leadComplete, contractText, identification }: Props) {
   const [lang, setLang] = useState<Lang>(initialLang);
   const t = dictionaries[lang];
   const allGuests = guests.length >= booking.expected;
@@ -159,8 +168,19 @@ export function GuestFlow({ token, initialLang, property, booking, guests, leadC
         <div className="flex flex-1 flex-col gap-5">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{t.done}</h1>
-            <p className="mt-2">{t.doneIntro}</p>
+            {!identification.identified && <p className="mt-2">{t.doneIntro}</p>}
           </div>
+          <Identify
+            token={token}
+            t={t}
+            lang={lang}
+            identified={identification.identified}
+            accessCode={identification.accessCode}
+            accessInstructions={identification.accessInstructions[lang] || identification.accessInstructions.it || null}
+            request={identification.request}
+            slotAt={identification.slotAt}
+            iceServers={identification.iceServers}
+          />
           {(property.instructions[lang] || property.instructions.it) && (
             <Card>
               <h2 className="mb-2 font-semibold">{t.instructions}</h2>

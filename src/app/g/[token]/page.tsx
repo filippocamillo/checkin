@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { fillTemplate, DEFAULT_CONTRACT_TEMPLATE } from "@/lib/contract";
 import { expectedGuests, leadGuestProblems } from "@/lib/guests";
 import { dictionaries } from "@/lib/i18n";
+import { iceServers } from "@/lib/ice";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Guest } from "@/lib/types";
 import { bookingForToken } from "./data";
@@ -42,6 +43,15 @@ export default async function GuestPage({ params }: PageProps<"/g/[token]">) {
       guests={guests}
       leadComplete={!!lead && leadGuestProblems(lead).length === 0}
       contractText={fillTemplate(p.contract_template || DEFAULT_CONTRACT_TEMPLATE, { property: p, booking, lead })}
+      identification={{
+        identified: !!booking.identified_at,
+        request: booking.identification_request,
+        slotAt: booking.identification_slot_at,
+        // Codice e istruzioni d'ingresso arrivano al browser solo dopo il riconoscimento.
+        accessCode: booking.identified_at ? booking.access_code : null,
+        accessInstructions: booking.identified_at ? (p.access_instructions ?? {}) : {},
+        iceServers: iceServers(),
+      }}
     />
   );
 }

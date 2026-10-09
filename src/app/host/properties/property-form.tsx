@@ -2,7 +2,7 @@ import { Button, Card, Field, Input, Textarea } from "@/components/ui";
 import { DEFAULT_CONTRACT_TEMPLATE } from "@/lib/contract";
 import type { Property } from "@/lib/types";
 
-export function PropertyForm({ property, action }: { property?: Property; action: (fd: FormData) => Promise<void> }) {
+export function PropertyForm({ property, action, hasNukiToken = false }: { property?: Property; action: (fd: FormData) => Promise<void>; hasNukiToken?: boolean }) {
   const p = property;
   return (
     <form action={action} className="flex flex-col gap-6">
@@ -57,12 +57,35 @@ export function PropertyForm({ property, action }: { property?: Property; action
 
       <Card className="grid gap-4">
         <h2 className="font-semibold">Istruzioni per l&apos;ospite</h2>
-        <Field label="Italiano" hint="Wi-Fi, parcheggio, regole della casa. Il codice d'accesso arriverà con l'integrazione Nuki.">
+        <Field label="Italiano" hint="Wi-Fi, parcheggio, regole della casa. L'ospite le vede appena completa il check-in.">
           <Textarea name="instructions_it" defaultValue={p?.guest_instructions?.it ?? ""} />
         </Field>
         <Field label="English">
           <Textarea name="instructions_en" defaultValue={p?.guest_instructions?.en ?? ""} />
         </Field>
+      </Card>
+
+      <Card className="grid gap-4">
+        <div>
+          <h2 className="font-semibold">Ingresso</h2>
+          <p className="text-sm text-fg-muted">
+            Le istruzioni d&apos;ingresso e il codice Nuki compaiono all&apos;ospite solo dopo che hai riconosciuto tutti gli ospiti, di persona o in videochiamata.
+          </p>
+        </div>
+        <Field label="Istruzioni d'ingresso (italiano)" hint="Come trovare il portone, dove si trova il tastierino, piano e interno.">
+          <Textarea name="access_it" defaultValue={p?.access_instructions?.it ?? ""} />
+        </Field>
+        <Field label="Entry instructions (English)">
+          <Textarea name="access_en" defaultValue={p?.access_instructions?.en ?? ""} />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="ID serratura Nuki" hint="Da web.nuki.io, scheda della serratura. Lascia vuoto se non usi Nuki.">
+            <Input name="nuki_smartlock_id" defaultValue={p?.nuki_smartlock_id ?? ""} inputMode="numeric" />
+          </Field>
+          <Field label="Token API Nuki Web" hint={hasNukiToken ? "Già impostato: scrivi qui solo per sostituirlo." : "web.nuki.io → Menu → API → Genera token."}>
+            <Input name="nuki_api_token" type="password" autoComplete="off" placeholder={hasNukiToken ? "••••••••" : ""} />
+          </Field>
+        </div>
       </Card>
 
       <Card className="grid gap-4">

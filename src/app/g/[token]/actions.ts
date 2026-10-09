@@ -5,8 +5,10 @@ import { revalidatePath } from "next/cache";
 import type { ExtractResult, SaveResult } from "@/components/guest-form";
 import { extractFromForm, extractionFromForm } from "@/lib/document-actions";
 import { expectedGuests, leadGuestProblems, parseGuestForm, refreshBookingStatus, saveGuest } from "@/lib/guests";
+import { refreshAccess } from "@/lib/access";
 import { dictionaries, type Lang } from "@/lib/i18n";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { IdentificationRequest } from "@/lib/types";
 import { bookingForToken } from "./data";
 
 export async function guestExtract(token: string, formData: FormData): Promise<ExtractResult> {
@@ -45,6 +47,8 @@ export async function guestSaveGuest(token: string, lang: Lang, guestId: string 
   }
   if (isLead) await supabase.from("bookings").update({ lead_name: `${parsed.data.first_name} ${parsed.data.last_name}` }).eq("id", booking.id);
   await refreshBookingStatus(supabase, booking.id);
+  // Se è cambiato il documento il riconoscimento decade.
+  await refreshAccess(booking.id);
   revalidatePath(`/g/${token}`);
   return { ok: true };
 }
@@ -68,4 +72,80 @@ export async function acceptContract(token: string, fullName: string): Promise<{
   await refreshBookingStatus(supabase, booking.id);
   revalidatePath(`/g/${token}`);
   return { ok: true };
+}
+
+// Riconoscimento all'arrivo -----------------------------------------------------
+
+export async function requestIdentification(token: string, mode: IdentificationRequest, slot: string | null): Promise<{ ok: boolean }> {
+  const booking = await bookingForToken(token);
+  if (!booking || booking.identified_at) return { ok: false };
+  if (!["video_now", "video_slot", "in_person"].includes(mode)) return { ok: false };
+  let slotAt: string | null = null;
+  if (mode === "video_slot") {
+    const d = slot ? new Date(slot) : null;
+    if (!d || Number.isNaN(d.getTime())) return { ok: false };
+    slotAt = d.toISOString();
+  }
+  await createAdminClient()
+    .from("bookings")
+    .update({
+      identification_request: mode,
+      identification_slot_at: slotAt,
+      arrival_requested_at: mode === "video_now" ? new Date().toISOString() : booking.arrival_requested_at,
+    })
+    .eq("id", booking.id);
+  revalidatePath(`/g/${token}`);
+  return { ok: true };
+}
+
+/** Stato per la pagina dell'ospite: chiamata in arrivo dall'host e riconoscimento completato. */
+export async function pollIdentification(token: string): Promise<{ call: { id: string; offer: string } | null; identified: boolean }> {
+  const booking = await bookingForToken(token);
+  if (!booking) return { call: null, identified: false };
+  const since = new Date(Date.now() - 30 * 60_000).toISOString();
+  const { data } = await createAdminClient()
+    .from("calls")
+    .select("id, offer")
+    .eq("booking_id", booking.id)
+    .is("ended_at", null)
+    .is("answer", null)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return { call: data ?? null, identified: !!booking.identified_at };
+}
+
+export async function answerCall(token: string, callId: string, answer: string): Promise<{ ok: boolean }> {
+  const booking = await bookingForToken(token);
+  if (!booking || answer.length > 30_000) return { ok: false };
+  try {
+    const d = JSON.parse(answer);
+    if (d?.type !== "answer" || typeof d.sdp !== "string") return { ok: false };
+  } catch {
+    return { ok: false };
+  }
+  const { data } = await createAdminClient()
+    .from("calls")
+    .update({ answer })
+    .eq("id", callId)
+    .eq("booking_id", booking.id)
+    .is("ended_at", null)
+    .is("answer", null)
+    .select("id")
+    .maybeSingle();
+  return { ok: !!data };
+}
+
+export async function callEnded(token: string, callId: string): Promise<{ ended: boolean }> {
+  const booking = await bookingForToken(token);
+  if (!booking) return { ended: true };
+  const { data } = await createAdminClient().from("calls").select("ended_at").eq("id", callId).eq("booking_id", booking.id).maybeSingle();
+  return { ended: !data || !!data.ended_at };
+}
+
+export async function hangUp(token: string, callId: string) {
+  const booking = await bookingForToken(token);
+  if (!booking) return;
+  await createAdminClient().from("calls").update({ ended_at: new Date().toISOString() }).eq("id", callId).eq("booking_id", booking.id).is("ended_at", null);
 }

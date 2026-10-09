@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { syncFeed } from "@/lib/ical";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { BookingChannel, IcalFeed } from "@/lib/types";
 
@@ -33,20 +34,35 @@ function propertyFields(fd: FormData) {
     tax_exempt_under_age: num(fd, "tax_exempt_under_age"),
     contract_template: str(fd, "contract_template"),
     guest_instructions: { it: str(fd, "instructions_it") ?? "", en: str(fd, "instructions_en") ?? "" },
+    access_instructions: { it: str(fd, "access_it") ?? "", en: str(fd, "access_en") ?? "" },
+    nuki_smartlock_id: str(fd, "nuki_smartlock_id"),
   };
+}
+
+/** Il token Nuki si salva a parte, leggibile solo dal server. */
+async function saveNukiToken(propertyId: string, fd: FormData) {
+  const token = str(fd, "nuki_api_token");
+  if (!token) return;
+  const { error } = await createAdminClient()
+    .from("property_secrets")
+    .upsert({ property_id: propertyId, nuki_api_token: token, updated_at: new Date().toISOString() });
+  if (error) throw error;
 }
 
 export async function createProperty(formData: FormData) {
   const supabase = await createClient();
   const { data, error } = await supabase.from("properties").insert(propertyFields(formData)).select("id").single();
   if (error) throw error;
+  await saveNukiToken(data.id, formData);
   redirect(`/host/properties/${data.id}`);
 }
 
 export async function updateProperty(id: string, formData: FormData) {
   const supabase = await createClient();
-  const { error } = await supabase.from("properties").update(propertyFields(formData)).eq("id", id);
+  // L'update passa dalle policy: se non restituisce la riga, l'appartamento non è dell'host.
+  const { data, error } = await supabase.from("properties").update(propertyFields(formData)).eq("id", id).select("id").maybeSingle();
   if (error) throw error;
+  if (data) await saveNukiToken(id, formData);
   revalidatePath(`/host/properties/${id}`);
 }
 
